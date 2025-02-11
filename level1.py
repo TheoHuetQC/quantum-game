@@ -1,4 +1,5 @@
 import pygame
+import time
 
 # Initialisation de Pygame
 pygame.init()
@@ -30,9 +31,6 @@ inventory = [None] * 5  # Liste des objets dans l'inventaire
 selected_slot = None  # Indice de la case sélectionnée
 main = None  # Objet actuellement sélectionné
 
-# Ajouter un "positiomètre" dans l'inventaire (première case)
-inventory[0] = "positiometre"
-
 # Définition du caillou quantique
 quantum_stone_positions = [(WIDTH // 2, HEIGHT // 2), (WIDTH // 2, exit_door.bottom + 20)]
 quantum_stone_radius = 25
@@ -53,6 +51,7 @@ dialogues = [
     "Il peut être à plusieurs endroits à la fois !",
     "Mais... Oh non ! Il bloque l'accès à la salle suivante !",
     "En physique quantique, mesurer un objet réduit sa superposition\net le fixe à un seul état.",
+    "Tiens, prends cet appareil, il te sera utile !",
     "Essaye donc ici de le mesurer en sélectionnant le positiomètre."
 ]
 
@@ -61,6 +60,11 @@ measured_message = "Bravo ! Tu as fixé le caillou, tu peux passer à la salle s
 dialogue_index = 0
 showing_dialogue = True
 show_measured_message = False
+positiometer_given = False
+animating_item = False
+item_pos = None
+animation_steps = 50  # Nombre d'étapes pour ralentir l'animation
+step_counter = 0
 
 # Boucle de jeu
 running = True
@@ -98,10 +102,28 @@ while running:
                 dialogue_text = dialogue_font.render(line, True, BLACK)
                 dialogue_rect = dialogue_text.get_rect(center=(WIDTH // 2, HEIGHT - 100 + i * 30))
                 WINDOW.blit(dialogue_text, dialogue_rect)
+            
+            # Ajouter le positiomètre au bon moment avec animation
+            if dialogue_index == 6 and not positiometer_given:
+                item_pos = [WIDTH // 2 - 20, HEIGHT // 2 - 20]
+                animating_item = True
+                positiometer_given = True
+                step_counter = 0
         elif show_measured_message:
             measured_text = dialogue_font.render(measured_message, True, BLACK)
             measured_rect = measured_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
             WINDOW.blit(measured_text, measured_rect)
+        
+        # Animer l'objet allant vers l'inventaire
+        if animating_item and item_pos:
+            pygame.draw.rect(WINDOW, DARK_GRAY, (item_pos[0], item_pos[1], 40, 40))
+            target_x, target_y = inventory_slots[0].x, inventory_slots[0].y
+            item_pos[0] += (target_x - item_pos[0]) / (animation_steps - step_counter)
+            item_pos[1] += (target_y - item_pos[1]) / (animation_steps - step_counter)
+            step_counter += 1
+            if step_counter >= animation_steps:
+                inventory[0] = "positiometre"
+                animating_item = False
     
     elif state == "end":
         end_text = font.render("Passer à la salle 2", True, BLACK)
@@ -124,7 +146,7 @@ while running:
                     for i, slot in enumerate(inventory_slots):
                         if slot.collidepoint(event.pos):
                             selected_slot = i if inventory[i] is not None else None
-                            main = inventory[i]  # Met à jour l'objet sélectionné
+                            main = inventory[i]
                     
                     for pos in quantum_stone_positions:
                         distance = ((event.pos[0] - pos[0])**2 + (event.pos[1] - pos[1])**2) ** 0.5
@@ -137,8 +159,9 @@ while running:
                     if exit_door.collidepoint(event.pos) and not door_locked:
                         state = "end"
             elif state == "end":
-                running = False  # Fermer le jeu après l'écran de fin
+                running = False
     
     pygame.display.flip()
+    pygame.time.delay(20)
 
 pygame.quit()
