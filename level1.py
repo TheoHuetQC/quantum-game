@@ -6,15 +6,19 @@ pygame.init()
 # Paramètres de la fenêtre
 WIDTH, HEIGHT = 800, 600
 WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Musée Quantique - Niveau 1")
+pygame.display.set_caption("Musée Quantique")
 
 # Couleurs
 WHITE = (255, 255, 255)
 BROWN = (139, 69, 19)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
+DARK_GRAY = (100, 100, 100)
 LIGHT_GRAY = (220, 220, 220)
 PURPLE = (128, 0, 128)
+
+# État du jeu
+state = "start"
 
 # Définition des portes
 entrance_door = pygame.Rect(250, HEIGHT - 50, 300, 40)  # Porte d'entrée en bas
@@ -25,6 +29,9 @@ inventory_slots = [pygame.Rect(WIDTH - 260 + i * 50, HEIGHT - 60, 40, 40) for i 
 inventory = [None] * 5  # Liste des objets dans l'inventaire
 selected_slot = None  # Indice de la case sélectionnée
 main = None  # Objet actuellement sélectionné
+
+# Ajouter un "positiomètre" dans l'inventaire (première case)
+inventory[0] = "positiometre"
 
 # Définition du caillou quantique
 quantum_stone_positions = [(WIDTH // 2, HEIGHT // 2), (WIDTH // 2, exit_door.bottom + 20)]
@@ -46,7 +53,7 @@ dialogues = [
     "Il peut être à plusieurs endroits à la fois !",
     "Mais... Oh non ! Il bloque l'accès à la salle suivante !",
     "En physique quantique, mesurer un objet réduit sa superposition\net le fixe à un seul état.",
-    "Essaye donc ici de le mesurer."
+    "Essaye donc ici de le mesurer en sélectionnant le positiomètre."
 ]
 
 # Ajout d'un message après la mesure
@@ -60,62 +67,77 @@ running = True
 while running:
     WINDOW.fill(WHITE)  # Fond blanc
     
-    # Dessiner les portes
-    pygame.draw.rect(WINDOW, BROWN, entrance_door)
-    pygame.draw.rect(WINDOW, BROWN, exit_door)
+    if state == "start":
+        start_text = font.render("Musée de la Quantique - Entrer", True, BLACK)
+        start_rect = start_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        WINDOW.blit(start_text, start_rect)
     
-    # Dessiner l'inventaire
-    for i, slot in enumerate(inventory_slots):
-        color = LIGHT_GRAY if i == selected_slot else GRAY
-        pygame.draw.rect(WINDOW, color, slot)
+    elif state == "game":
+        # Dessiner les portes
+        pygame.draw.rect(WINDOW, BROWN, entrance_door)
+        pygame.draw.rect(WINDOW, BROWN, exit_door)
+        
+        # Dessiner l'inventaire
+        for i, slot in enumerate(inventory_slots):
+            color = LIGHT_GRAY if i == selected_slot else GRAY
+            pygame.draw.rect(WINDOW, color, slot)
+            if inventory[i] == "positiometre":
+                pygame.draw.rect(WINDOW, DARK_GRAY, slot)
+        
+        # Dessiner le caillou quantique
+        if not quantum_measured:
+            for pos in quantum_stone_positions:
+                pygame.draw.circle(WINDOW, PURPLE, pos, quantum_stone_radius)
+        else:
+            pygame.draw.circle(WINDOW, PURPLE, quantum_stone_positions[0], quantum_stone_radius)
+        
+        # Afficher le dialogue
+        if showing_dialogue and dialogue_index < len(dialogues):
+            lines = dialogues[dialogue_index].split("\n")
+            for i, line in enumerate(lines):
+                dialogue_text = dialogue_font.render(line, True, BLACK)
+                dialogue_rect = dialogue_text.get_rect(center=(WIDTH // 2, HEIGHT - 100 + i * 30))
+                WINDOW.blit(dialogue_text, dialogue_rect)
+        elif show_measured_message:
+            measured_text = dialogue_font.render(measured_message, True, BLACK)
+            measured_rect = measured_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+            WINDOW.blit(measured_text, measured_rect)
     
-    # Dessiner le caillou quantique
-    if not quantum_measured:
-        for pos in quantum_stone_positions:
-            pygame.draw.circle(WINDOW, PURPLE, pos, quantum_stone_radius)
-    else:
-        pygame.draw.circle(WINDOW, PURPLE, quantum_stone_positions[0], quantum_stone_radius)
-    
-    # Afficher le dialogue
-    if showing_dialogue and dialogue_index < len(dialogues):
-        lines = dialogues[dialogue_index].split("\n")
-        for i, line in enumerate(lines):
-            dialogue_text = dialogue_font.render(line, True, BLACK)
-            dialogue_rect = dialogue_text.get_rect(center=(WIDTH // 2, HEIGHT - 100 + i * 30))
-            WINDOW.blit(dialogue_text, dialogue_rect)
-    elif show_measured_message:
-        measured_text = dialogue_font.render(measured_message, True, BLACK)
-        measured_rect = measured_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-        WINDOW.blit(measured_text, measured_rect)
+    elif state == "end":
+        end_text = font.render("Passer à la salle 2", True, BLACK)
+        end_rect = end_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        WINDOW.blit(end_text, end_rect)
     
     # Gestion des événements
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if showing_dialogue:
-                dialogue_index += 1
-                if dialogue_index >= len(dialogues):
-                    showing_dialogue = False
-            else:
-                # Vérifier si on clique sur un des cailloux quantiques
-                for pos in quantum_stone_positions:
-                    distance = ((event.pos[0] - pos[0])**2 + (event.pos[1] - pos[1])**2) ** 0.5
-                    if distance <= quantum_stone_radius:
-                        quantum_measured = True
-                        door_locked = False
-                        show_measured_message = True
-                        break
-                
-                # Vérifier si une case de l'inventaire est cliquée
-                for i, slot in enumerate(inventory_slots):
-                    if slot.collidepoint(event.pos):
-                        selected_slot = i if inventory[i] is not None else None
-                        main = inventory[i]  # Met à jour l'objet sélectionné
-                
-                # Vérifier si la porte de sortie est cliquée
-                if exit_door.collidepoint(event.pos) and not door_locked:
-                    running = False  # Terminer le niveau
+            if state == "start":
+                state = "game"
+            elif state == "game":
+                if showing_dialogue:
+                    dialogue_index += 1
+                    if dialogue_index >= len(dialogues):
+                        showing_dialogue = False
+                else:
+                    for i, slot in enumerate(inventory_slots):
+                        if slot.collidepoint(event.pos):
+                            selected_slot = i if inventory[i] is not None else None
+                            main = inventory[i]  # Met à jour l'objet sélectionné
+                    
+                    for pos in quantum_stone_positions:
+                        distance = ((event.pos[0] - pos[0])**2 + (event.pos[1] - pos[1])**2) ** 0.5
+                        if distance <= quantum_stone_radius and main == "positiometre":
+                            quantum_measured = True
+                            door_locked = False
+                            show_measured_message = True
+                            break
+                    
+                    if exit_door.collidepoint(event.pos) and not door_locked:
+                        state = "end"
+            elif state == "end":
+                running = False  # Fermer le jeu après l'écran de fin
     
     pygame.display.flip()
 
