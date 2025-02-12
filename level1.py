@@ -65,6 +65,7 @@ animating_item = False
 item_pos = None
 animation_steps = 50  # Nombre d'étapes pour ralentir l'animation
 step_counter = 0
+wait_for_click = False  # Variable pour attendre le clic avant de commencer l'animation
 
 # Boucle de jeu
 running = True
@@ -103,19 +104,26 @@ while running:
                 dialogue_rect = dialogue_text.get_rect(center=(WIDTH // 2, HEIGHT - 100 + i * 30))
                 WINDOW.blit(dialogue_text, dialogue_rect)
             
-            # Ajouter le positiomètre au bon moment avec animation
+            # Ajouter le positimètre au bon moment avec animation
             if dialogue_index == 6 and not positiometer_given:
-                item_pos = [WIDTH // 2 - 20, HEIGHT // 2 - 20]
+                item_pos = [WIDTH // 2 - 40, HEIGHT // 2 - 40]  # Appareil plus grand au centre
                 animating_item = True
                 positiometer_given = True
                 step_counter = 0
+                wait_for_click = True  # Attendre le clic avant de commencer l'animation
+        
         elif show_measured_message:
             measured_text = dialogue_font.render(measured_message, True, BLACK)
             measured_rect = measured_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
             WINDOW.blit(measured_text, measured_rect)
         
-        # Animer l'objet allant vers l'inventaire
-        if animating_item and item_pos:
+        # Afficher l'appareil au centre du dialogue
+        if animating_item and item_pos and wait_for_click:
+            pygame.draw.rect(WINDOW, DARK_GRAY, (item_pos[0], item_pos[1], 80, 80))
+        
+        # L'animation ne commence qu'après le clic
+        if animating_item and not wait_for_click:
+            # Déplacer l'appareil vers la première case de l'inventaire
             pygame.draw.rect(WINDOW, DARK_GRAY, (item_pos[0], item_pos[1], 40, 40))
             target_x, target_y = inventory_slots[0].x, inventory_slots[0].y
             item_pos[0] += (target_x - item_pos[0]) / (animation_steps - step_counter)
@@ -158,8 +166,10 @@ while running:
                     
                     if exit_door.collidepoint(event.pos) and not door_locked:
                         state = "end"
-            elif state == "end":
-                running = False
+            
+            # Lorsque le joueur clique, démarrer l'animation du positimètre
+            if wait_for_click:
+                wait_for_click = False  # L'animation commence après le clic
     
     pygame.display.flip()
     pygame.time.delay(20)
